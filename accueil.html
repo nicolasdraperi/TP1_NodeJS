@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr">
+ 
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+    <h1>Test</h1>
+
+    <button onclick="testGetUsers()">Liste Utilisateurs</button>
+    <input type="number" id="Id" placeholder="Entrez l'ID">
+    <button onclick="testGetComById()">Commentaire</button>
+
+    <div style="display: flex; flex-direction: row; gap:10px;justify-content: space-around;">
+        <div id="liste_utilisateur"></div>
+        <div id="liste_commentaire"></div>
+    </div>
+</body>
+
+
+<script src="./server.js"></script>
+
+</html>
