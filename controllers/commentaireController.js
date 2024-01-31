@@ -110,25 +110,4 @@ exports.listeCommentaire = async (req, res) => {
     }
 };
 
-exports.creerCommentaireMaisHashe = async (req, res) => {
-    const conn = await pool.getConnection();
 
-    let date_creation_commentaire = req.body.date_creation_commentaire;
-    let commentaire = req.body.commentaire;
-    let utilisateur_id = req.body.utilisateur_id;
-    let technologie_id = req.body.technologie_id;
-    
-    
-    const hashedCom = await bcrypt.hash(commentaire, 10);
-
-    const newComment = await pool.query(
-        "INSERT INTO Commentaire (date_creation_commentaire, commentaire, utilisateur_id, technologie_id) VALUES (?, ?, ?, ?) RETURNING *",
-        [date_creation_commentaire, hashedCom, utilisateur_id, technologie_id]
-    );
-
-    const rows2 = await pool.query("SELECT * FROM Commentaire");
-
-    conn.release();
-
-    res.status(200).json(rows2);
-};
