@@ -1,0 +1,122 @@
+const { JsonWebTokenError } = require('jsonwebtoken');
+const pool = require('../database/database')
+const bcrypt = require("bcrypt")
+const jwt = require("jsonwebtoken")
+//middleware
+exports.authenticator = async (req, res, next) => {
+    const token = req.body.token ? req.body.token : req.headers.authorization;
+
+    if (token) {
+        jwt.verify(token, process.env.API_KEY, async (err, decoded) => {
+            if (err) {
+                return res.status(401).json("non autorisé");
+            } else {
+                try {
+                    const conn = await pool.getConnection();
+                    const result = await conn.query("SELECT role FROM utilisateur WHERE email = ?", [decoded.email]);
+                    conn.release();
+
+                    if (result.length > 0 && result[0].role === 'admin') {
+                        next();
+                    } else {
+                        return res.status(403).json("pas le bon role");
+                    }
+                } catch (error) {
+                    console.error(error);
+                    return res.status(500).json({ error: "Erreur lors de la vérification du rôle" });
+                }
+            }
+        });
+    } else {
+        return res.status(401).json('pas autorisé');
+    }
+};
+
+//fonction
+exports.getUtilisateurs = async (req, res) => {
+    conn = await pool.getConnection();
+    const rows = await conn.query("SELECT * FROM utilisateur")
+    conn.release()
+    res.status(200).json(rows)
+}
+
+exports.inscription = async (req, res) => {
+    try {
+        const { nom, prenom, email, password } = req.body;
+        conn = await pool.getConnection()
+        const result = await conn.query("SELECT * FROM utilisateur WHERE email = ?", [email]);
+        conn.release()
+        if (result.length > 0) {
+            return res.status(400).json({ error: "Cet utilisateur existe déja" })
+        }
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const insertUserQuery = "INSERT INTO utilisateur (nom, prenom, email, password, role) VALUES (?, ?, ?, ?, 'journaliste')";
+        const insertUserValues = [nom, prenom, email, hashedPassword];
+        await conn.query(insertUserQuery, insertUserValues);
+        conn.release();
+        const token = jwt.sign({ email }, process.env.API_KEY, { expiresIn: '1h' });
+        res.json({ token });
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ error: "Erreur lors de l'inscription" });
+    }
+}
+exports.login = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        conn = await pool.getConnection()
+        const result = await conn.query("SELECT * FROM utilisateur WHERE email = ?", [email]);
+        conn.release()
+        if (result.length === 0) {
+            return res.status(400).json("erreur:email non existant")
+        }
+        const passwordTrue = await bcrypt.compare(password, result[0].password)
+        console.log(passwordTrue)
+        if (!passwordTrue) {
+            return res.status(400).json('Mot de passe incorect')
+        }
+        const token = jwt.sign({ email }, process.env.API_KEY, { expiresIn: '1h' })
+        res.json(token)
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ error: "Erreur lors de l'inscription" });
+    }
+}
+exports.listeUtilisateur = async (req, res) => {
+
+    conn = await pool.getConnection();
+    const rows = await conn.query("SELECT * FROM utilisateur")
+    conn.release()
+    res.status(200).json(rows);
+}
+exports.modifier = async (req, res) => {
+    try {
+        const conn = await pool.getConnection();
+        const id = req.params.id;
+        const { nom, prenom, email } = req.body;
+        const userExists = await conn.query("SELECT * FROM Utilisateur WHERE id = ?", [id]);
+        if (userExists.length === 0) {
+            conn.release();
+            return res.status(404).json({ error: "Utilisateur non trouvé" });
+        }
+        const updateQuery = "UPDATE Utilisateur SET nom = ?, prenom = ?, email = ? WHERE id = ?";
+        const updateValues = [nom, prenom, email, id];
+        const rows = await pool.query(updateQuery, updateValues);
+        const updatedUser = await conn.query("SELECT * FROM utilisateur WHERE id = ?", [id]);
+        conn.release();
+        res.status(200).json(updatedUser);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "Erreur lors de la modification de l'utilisateur" });
+    }
+};
+exports.supprimer = async (req, res) => {
+
+    conn = await pool.getConnection();
+    const id = req.params.id;
+    const rows = await pool.query("DELETE FROM Utilisateur WHERE id = ?", [id]);
+
+    const rows2 = await conn.query("SELECT * FROM utilisateur")
+    conn.release();
+    res.status(200).json(rows2);
+}
